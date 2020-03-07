@@ -7,7 +7,7 @@ from .models import Message
 class ChatConsumer(WebsocketConsumer):
 
     def fetch_messages(self, data):
-        messages = Message.last_10_messages(Message)
+        messages = Message.objects.order_by('timestamp')[:10]
         content = {
             'command': 'messages',
             'messages': self.messages_to_json(messages)
