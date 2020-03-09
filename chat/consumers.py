@@ -4,6 +4,7 @@ from channels.generic.websocket import WebsocketConsumer
 import json
 from .models import Message
 
+
 class ChatConsumer(WebsocketConsumer):
 
     def fetch_messages(self, data):
