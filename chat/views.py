@@ -8,7 +8,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login as auth_login
 from django.contrib.auth.views import LoginView
-
+from .scraper import main
 
 class Index(LoginRequiredMixin, TemplateView):
     login_url = 'login'
@@ -29,8 +29,13 @@ class Index(LoginRequiredMixin, TemplateView):
 
 @login_required
 def room(request, room_name):
+    msg,user, driver = main()
+    url = driver.command_executor._url
+    session_id = driver.session_id
     room = Room.objects.get_or_create(room_name=room_name, user=request.user.username)
     return render(request, 'chat/room.html', {
+        'url': url,
+        'session_id': session_id,
         'room': room,
         'room_name': room_name,
         'username': request.user.username

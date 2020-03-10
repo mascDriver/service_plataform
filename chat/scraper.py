@@ -8,7 +8,33 @@ import time
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from django.conf import settings
+from .models import Message, Room
+from django.contrib.auth.models import User
 
+
+def create_driver_session(session_id, executor_url):
+    from selenium.webdriver.remote.webdriver import WebDriver as RemoteWebDriver
+
+    # Save the original function, so we can revert our patch
+    org_command_execute = RemoteWebDriver.execute
+
+    def new_command_execute(self, command, params=None):
+        if command == "newSession":
+            # Mock the response
+            return {'success': 0, 'value': None, 'sessionId': session_id}
+        else:
+            return org_command_execute(self, command, params)
+
+    # Patch the function before creating the driver object
+    RemoteWebDriver.execute = new_command_execute
+
+    new_driver = webdriver.Remote(command_executor=executor_url, desired_capabilities={})
+    new_driver.session_id = session_id
+
+    # Replace the patched function with original function
+    RemoteWebDriver.execute = org_command_execute
+
+    return new_driver
 
 
 def load_settings():
@@ -37,11 +63,11 @@ def load_driver(settings, url, session_id):
     """
     driver = None
     if settings['browser'] == 'firefox':
-        if driver:
-            driver = webdriver.Remote(command_executor=url, desired_capabilities={})
-            driver.session_id = session_id
-        firefox_profile = webdriver.FirefoxProfile(settings['browser_path'])
-        driver = webdriver.Firefox(firefox_profile)
+        if url and session_id:
+            driver = create_driver_session(session_id, url)
+        else:
+            firefox_profile = webdriver.FirefoxProfile(settings['browser_path'])
+            driver = webdriver.Firefox(firefox_profile)
 
 
     elif settings['browser'] == 'chrome':
@@ -53,9 +79,6 @@ def load_driver(settings, url, session_id):
         pass
     elif settings['browser'] == 'edge':
         pass
-
-    url = driver.command_executor._url
-    session_id = driver.session_id
 
     return driver
 
@@ -69,10 +92,11 @@ def search_chatter(driver, settings):
         for chatter in driver.find_elements_by_xpath("//div[@class='X7YrQ']"):
             chatter_name = chatter.find_element_by_xpath(
                 ".//span[contains(@class, '_19RFN')]").text
+
             if chatter_name == settings['name']:
                 chatter.find_element_by_xpath(
                     ".//div[contains(@class,'_2UaNq')]").click()
-                return
+                return chatter_name
 
 
 def read_last_in_message(driver):
@@ -82,7 +106,7 @@ def read_last_in_message(driver):
     message = ''
     emojis = []
     for messages in driver.find_elements_by_xpath(
-            "//div[contains(@class,'message-in')]"):
+            "//div[contains(@class,'message-out')]"):
         try:
             message = ""
             emojis = []
@@ -116,34 +140,32 @@ def read_last_in_message(driver):
     return message, emojis
 
 
-def main(driver=None):
+def main(url=None, session_id=None):
     """
     Loading all the configuration and opening the website
     (Browser profile where whatsapp web is already scanned)
     """
 
     settings = load_settings()
-    url = ''
-    session_id = ''
-    if driver:
-        url = driver.command_executor._url
-        session_id = driver.session_id
     driver = load_driver(settings, url, session_id)
     driver.get(settings['page'])
 
-    search_chatter(driver, settings)
+    user = search_chatter(driver, settings)
 
     previous_in_message = None
-    while True:
-        last_in_message, emojis = read_last_in_message(driver)
-
-        if previous_in_message != last_in_message:
-            print(last_in_message, emojis)
-            previous_in_message = last_in_message
-            return previous_in_message, driver
-
-        time.sleep(1)
-
+    if url and session_id:
+        while True:
+            last_in_message, emojis = read_last_in_message(driver)
+            if previous_in_message != last_in_message:
+                print(user,last_in_message)
+                previous_in_message = last_in_message
+                user_a = User.objects.get(username=user)
+                msg = Message(content=last_in_message, room=Room.objects.get(pk=1), author=user_a)
+                msg.save()
+                return previous_in_message, user, driver
+            time.sleep(1)
+    else:
+        return previous_in_message, user, driver
 
 if __name__ == '__main__':
     main()

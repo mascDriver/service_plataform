@@ -8,13 +8,6 @@ from .scraper import main
 
 
 class ChatConsumer(WebsocketConsumer):
-    def __init__(self, *args, **kwargs):
-        self.driver = ''
-        self.previous_in_message = ''
-        previous_in_message, driver = main(driver=self.driver)
-        ChatConsumer.__init__(self)
-        super().__init__(*args, **kwargs)
-
     def fetch_room(self, data):
         chats = list(Chat.objects.filter(user=data['from']).values('room__room_name','user').annotate(dcount=Count('room')))
         result = []
@@ -26,15 +19,22 @@ class ChatConsumer(WebsocketConsumer):
         }
         self.send(text_data=json.dumps(ctx))
 
+    def fetch_messages_wpp(self,data):
+        msg, user, drive = main(data['url'], data['session_id'])
+        content = {
+            'command': 'wpp',
+            'messages': msg
+        }
+        self.send_message(content)
+
 
     def fetch_messages(self, data):
-        main(self.driver)
-        print(self.driver, self.previous_in_message)
+
         messages = Chat.objects.filter(room__room_name=data.get('room','')).all().order_by('-id')[:10]
         last_order = reversed(messages)
         content = {
             'command': 'messages',
-            'messages': self.messages_to_json(last_order)
+            'messages': self.messages_to_json(last_order),
         }
         self.send_message(content)
 
@@ -48,7 +48,7 @@ class ChatConsumer(WebsocketConsumer):
 
         content = {
             'command': 'new_message',
-            'message': self.message_to_json(message)
+            'message': self.message_to_json(message),
         }
         return self.send_chat_message(content)
 
@@ -62,13 +62,14 @@ class ChatConsumer(WebsocketConsumer):
         return {
             'author': message.user,
             'content': message.message.content,
-            'timestamp': str(message.message.timestamp)
+            'timestamp': str(message.message.timestamp),
         }
 
     commands = {
         'fetch_messages': fetch_messages,
         'new_message': new_messages,
-        'fetch_room': fetch_room
+        'fetch_room': fetch_room,
+        'fetch_messages_wpp': fetch_messages_wpp
     }
 
     def connect(self):

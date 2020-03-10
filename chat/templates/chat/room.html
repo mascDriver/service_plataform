@@ -69,6 +69,7 @@
                     <div class="input_msg_write">
                         <input type="text" class="write_msg" placeholder="Type a message" id="chat-message-input"/>
                         <button class="msg_send_btn" type="button"  id="chat-message-submit"><i class="fa fa-paper-plane-o" aria-hidden="true"></i></button>
+                        <button class="btn btn-info" type="button"  id="atualizar">Atualizar</button>
                     </div>
                 </div>
             </div>
@@ -84,8 +85,8 @@
     var roomName = "{{ room_name|escapejs }}";
     var username = "{{ username|escapejs }}";
     var room = "{{ room|escapejs }}";
-
-
+    var url = "{{ url|escapejs}}";
+    var session_id = "{{ session_id|escapejs }}";
 
     var chatSocket = new ReconnectingWebSocket(
         'ws://' + window.location.host +
@@ -114,11 +115,15 @@
         }
 
         if (data['command'] === 'messages') {
+            console.log(data)
             for (let i=0; i<data['messages'].length; i++) {
                 createMessage(data['messages'][i]);
             }
+            createMessage(data)
         } else if (data['command'] === 'new_message'){
             createMessage(data['message']);
+        }else if (data['command'] === 'wpp'){
+            createMessage(data);
         }
     };
 
@@ -136,6 +141,7 @@
     document.querySelector('#chat-message-submit').onclick = function(e) {
         var messageInputDom = document.querySelector('#chat-message-input');
         var message = messageInputDom.value;
+
         chatSocket.send(JSON.stringify({
             'message': message,
             'command': 'new_message',
@@ -145,10 +151,17 @@
 
         messageInputDom.value = '';
     };
+    $("#atualizar").click(function(){
 
+        fetch_messages_wpp();
+    });
+    function fetch_messages_wpp() {
+        chatSocket.send(JSON.stringify({'command': 'fetch_messages_wpp',
+            'room': room,'url': url, 'session_id': session_id, }));
+    }
     function fetchMessages(room) {
         chatSocket.send(JSON.stringify({'command': 'fetch_messages',
-            'room': room }));
+            'room': room,'url': url, 'session_id': session_id, }));
     }
 
     function fetchRoom() {
@@ -157,8 +170,8 @@
     }
 
     function createMessage(data) {
-        var author = data['author'];
-        var content = data['content'];
+        var author = data['author'] || data['user'];
+        var content = data['content'] || data['msg'];
         var timestamp = new Date(data['timestamp'])
         var msgListTag = document.createElement('li');
         if (author === username) {
