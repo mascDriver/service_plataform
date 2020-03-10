@@ -47,24 +47,8 @@
                 </span> </div>
                     </div>
                 </div>
-                <div class="inbox_chat page-footer" >
-                    <div class="chat_list active_chat">
-                        <div class="chat_people">
-                            <div class="chat_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
-                            <div class="chat_ib">
-                                <h5 id="user_chat_name">Sunil Rajput <span class="chat_date">Dec 25</span></h5>
-                                <p id="span_chat"></p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="chat_list">
-                        <div class="chat_people">
-                            <div class="chat_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
-                            <div class="chat_ib">
-                                <h5>Sunil Rajput <span class="chat_date">Dec 25</span></h5>
-                            </div>
-                        </div>
-                    </div>
+                <div class="inbox_chat page-footer" id="user_chat_name">
+
                 </div>
             </div>
             <div class="mesgs " >
@@ -84,7 +68,7 @@
                 <div class="type_msg">
                     <div class="input_msg_write">
                         <input type="text" class="write_msg" placeholder="Type a message" id="chat-message-input"/>
-                        <button class="msg_send_btn" type="button" id="chat-message-submit"><i class="fa fa-paper-plane-o" aria-hidden="true"></i></button>
+                        <button class="msg_send_btn" type="button"  id="chat-message-submit"><i class="fa fa-paper-plane-o" aria-hidden="true"></i></button>
                     </div>
                 </div>
             </div>
@@ -99,6 +83,8 @@
 <script>
     var roomName = "{{ room_name|escapejs }}";
     var username = "{{ username|escapejs }}";
+    var room = "{{ room|escapejs }}";
+
 
 
     var chatSocket = new ReconnectingWebSocket(
@@ -106,12 +92,26 @@
         '/ws/chat/room/' + roomName + '/');
 
     chatSocket.onopen = function(e) {
-        fetchMessages();
+        fetchRoom();
+        fetchMessages(roomName);
+
     };
 
     chatSocket.onmessage = function(e) {
+
         var data = JSON.parse(e.data);
-        var last_message;
+        console.log(data)
+        if (data['command'] === 'room') {
+            for (let i=0; i<data['room'].length; i++)
+                createRoom(data['room'][0][i])
+            $(document).ready(function() {
+                $('.room_click').click(function() {
+                    $('#chat').html('')
+                    fetchMessages($(this)[0].value)
+                });
+            });
+        }
+
         if (data['command'] === 'messages') {
             for (let i=0; i<data['messages'].length; i++) {
                 createMessage(data['messages'][i]);
@@ -138,14 +138,22 @@
         chatSocket.send(JSON.stringify({
             'message': message,
             'command': 'new_message',
-            'from': username
+            'from': username,
+            'roomName': roomName
         }));
 
         messageInputDom.value = '';
     };
 
-    function fetchMessages() {
-        chatSocket.send(JSON.stringify({'command': 'fetch_messages' }));
+    function fetchMessages(room) {
+        console.log(room)
+        chatSocket.send(JSON.stringify({'command': 'fetch_messages',
+            'room': room }));
+    }
+
+    function fetchRoom() {
+        chatSocket.send(JSON.stringify({'command': 'fetch_room',
+            'from': username }));
     }
 
     function createMessage(data) {
@@ -155,12 +163,12 @@
         var msgListTag = document.createElement('li');
         if (author === username) {
             $('#chat').append("<div class=\"outgoing_msg\"><div class='sent_msg' id=\"sent\">"+author+"<p>"+content+"</p></div></div>")
-            $('#user_chat_name').html('Voce: '+'<p>'+content+'</p>')
+            $('#user_chat_msg').html('<p>'+content+'</p>')
             $('.footer').animate({
                 scrollTop: $(this).height() // aqui introduz o numero de px que quer no scroll, neste caso é a altura da propria div, o que faz com que venha para o fim
             }, 100)
         } else {
-            $('#user_chat_name').html(author+': '+'<p>'+content+'</p>')
+            $('#user_chat_msg').html('<p>'+content+'</p>')
             $('#chat').append("<div class=\"incoming_msg\"><div class=\"received_msg\"><div class=\"received_withd_msg\">"+author+"<p>"+content+"</p></div></div></div><br>")
 
         }
@@ -168,5 +176,13 @@
 
 
     }
+    function createRoom(data) {
+        var room = data['room__room_name']
+        console.log(data)
+        $('#user_chat_name').append("<div class=\"chat_list active_chat\"><div class=\"chat_people\"><div class=\"chat_img\"> <img src=\"https://ptetutorials.com/images/user-profile.png\" alt=\"sunil\"> </div><div class=\"chat_ib\"><button  class='room_click btn' value='"+room+"'>"+room+"</button></div></div></div>").addClass('room_click')
+    }
+
+
+
 
 </script>

@@ -2,13 +2,26 @@ from django.contrib.auth.models import User
 from asgiref.sync import async_to_sync
 from channels.generic.websocket import WebsocketConsumer
 import json
-from .models import Message
+from .models import Message, Room, Chat
+from django.db.models import Count
 
 
 class ChatConsumer(WebsocketConsumer):
 
+    def fetch_room(self, data):
+        chats = list(Chat.objects.filter(user=data['from']).values('room__room_name','user').annotate(dcount=Count('room')))
+        result = []
+        for chat in chats:
+            result.append(chats)
+        ctx = {
+            'command': 'room',
+            'room': result,
+        }
+        self.send(text_data=json.dumps(ctx))
+
     def fetch_messages(self, data):
-        messages = Message.objects.all().order_by('-id')[:10]
+        print(data)
+        messages = Chat.objects.filter(room__room_name=data.get('room','')).all().order_by('-id')[:10]
         last_order = reversed(messages)
         content = {
             'command': 'messages',
@@ -18,9 +31,12 @@ class ChatConsumer(WebsocketConsumer):
 
     def new_messages(self, data):
         author = data['from']
+        room = Room.objects.get(room_name=data['roomName'], user=data['from'])
         author_user = User.objects.filter(username=author)[0]
         message = Message.objects.create(author=author_user,
-                                         content=data['message'])
+                                         content=data['message'],room=room)
+        Chat.objects.get_or_create(room=room, message=message, user=data['from'])
+
         content = {
             'command': 'new_message',
             'message': self.message_to_json(message)
@@ -35,14 +51,15 @@ class ChatConsumer(WebsocketConsumer):
 
     def message_to_json(self, message):
         return {
-            'author': message.author.username,
-            'content': message.content,
-            'timestamp': str(message.timestamp)
+            'author': message.user,
+            'content': message.message.content,
+            'timestamp': str(message.message.timestamp)
         }
 
     commands = {
         'fetch_messages': fetch_messages,
-        'new_message': new_messages
+        'new_message': new_messages,
+        'fetch_room': fetch_room
     }
 
     def connect(self):
