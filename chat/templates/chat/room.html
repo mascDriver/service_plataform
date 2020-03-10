@@ -100,8 +100,9 @@
     chatSocket.onmessage = function(e) {
 
         var data = JSON.parse(e.data);
-        console.log(data)
         if (data['command'] === 'room') {
+            $('#user_chat_name').html('');
+            $('#chat').html('');
             for (let i=0; i<data['room'].length; i++)
                 createRoom(data['room'][0][i])
             $(document).ready(function() {
@@ -146,7 +147,6 @@
     };
 
     function fetchMessages(room) {
-        console.log(room)
         chatSocket.send(JSON.stringify({'command': 'fetch_messages',
             'room': room }));
     }
