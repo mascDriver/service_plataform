@@ -4,9 +4,16 @@ from channels.generic.websocket import WebsocketConsumer
 import json
 from .models import Message, Room, Chat
 from django.db.models import Count
+from .scraper import main
 
 
 class ChatConsumer(WebsocketConsumer):
+    def __init__(self, *args, **kwargs):
+        self.driver = ''
+        self.previous_in_message = ''
+        previous_in_message, driver = main(driver=self.driver)
+        ChatConsumer.__init__(self)
+        super().__init__(*args, **kwargs)
 
     def fetch_room(self, data):
         chats = list(Chat.objects.filter(user=data['from']).values('room__room_name','user').annotate(dcount=Count('room')))
@@ -19,8 +26,10 @@ class ChatConsumer(WebsocketConsumer):
         }
         self.send(text_data=json.dumps(ctx))
 
+
     def fetch_messages(self, data):
-        print(data)
+        main(self.driver)
+        print(self.driver, self.previous_in_message)
         messages = Chat.objects.filter(room__room_name=data.get('room','')).all().order_by('-id')[:10]
         last_order = reversed(messages)
         content = {
