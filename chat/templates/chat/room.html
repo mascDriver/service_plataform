@@ -2,6 +2,13 @@
 <!doctype html>
 <html lang="pt-br">
 <head>
+    <style>
+        .footer {
+
+            height: 100%;
+            overflow-y: auto;
+        }
+    </style>
     <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -30,7 +37,7 @@
             <div class="inbox_people">
                 <div class="headind_srch">
                     <div class="recent_heading">
-                        <h4>Recent</h4>
+                        <h4>Recentes</h4>
                     </div>
                     <div class="srch_bar">
                         <div class="stylish-input-group">
@@ -40,12 +47,12 @@
                 </span> </div>
                     </div>
                 </div>
-                <div class="inbox_chat">
+                <div class="inbox_chat page-footer" >
                     <div class="chat_list active_chat">
                         <div class="chat_people">
                             <div class="chat_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
                             <div class="chat_ib">
-                                <h5>Sunil Rajput <span class="chat_date">Dec 25</span></h5>
+                                <h5 id="user_chat_name">Sunil Rajput <span class="chat_date">Dec 25</span></h5>
                                 <p id="span_chat"></p>
                             </div>
                         </div>
@@ -60,8 +67,8 @@
                     </div>
                 </div>
             </div>
-            <div class="mesgs" id="chat-log">
-                <div class="msg_history" id="chat">
+            <div class="mesgs " >
+                <div class="msg_history footer" id="chat">
                     <div class="outgoing_msg">
                         <div class='sent_msg' id="sent">
                             <span class="time_date"> 11:01 AM    |    Today</span> </div>
@@ -94,7 +101,6 @@
     var username = "{{ username|escapejs }}";
 
 
-
     var chatSocket = new ReconnectingWebSocket(
         'ws://' + window.location.host +
         '/ws/chat/room/' + roomName + '/');
@@ -109,13 +115,10 @@
         if (data['command'] === 'messages') {
             for (let i=0; i<data['messages'].length; i++) {
                 createMessage(data['messages'][i]);
-                last_message = data['messages'][i]['content']
             }
         } else if (data['command'] === 'new_message'){
             createMessage(data['message']);
-            last_message = data['message']['content']
         }
-        $('#span_chat').html('<p>'+last_message+'</p>')
     };
 
     chatSocket.onclose = function(e) {
@@ -150,13 +153,20 @@
         var content = data['content'];
         var timestamp = new Date(data['timestamp'])
         var msgListTag = document.createElement('li');
-        var pTag = document.createElement('p');
-        pTag.textContent = data.content;
-
         if (author === username) {
             $('#chat').append("<div class=\"outgoing_msg\"><div class='sent_msg' id=\"sent\">"+author+"<p>"+content+"</p></div></div>")
+            $('#user_chat_name').html('Voce: '+'<p>'+content+'</p>')
+            $('.footer').animate({
+                scrollTop: $(this).height() // aqui introduz o numero de px que quer no scroll, neste caso é a altura da propria div, o que faz com que venha para o fim
+            }, 100)
         } else {
-            $('#chat').append("<div class=\"incoming_msg\"><div class=\"received_msg\"><div class=\"received_withd_msg\">"+author+"<p>"+author + content+"</p></div></div></div><br>")
+            $('#user_chat_name').html(author+': '+'<p>'+content+'</p>')
+            $('#chat').append("<div class=\"incoming_msg\"><div class=\"received_msg\"><div class=\"received_withd_msg\">"+author+"<p>"+content+"</p></div></div></div><br>")
+
         }
+
+
+
     }
+
 </script>

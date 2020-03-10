@@ -8,10 +8,11 @@ from .models import Message
 class ChatConsumer(WebsocketConsumer):
 
     def fetch_messages(self, data):
-        messages = Message.objects.order_by('timestamp')[:10]
+        messages = Message.objects.all().order_by('-id')[:10]
+        last_order = reversed(messages)
         content = {
             'command': 'messages',
-            'messages': self.messages_to_json(messages)
+            'messages': self.messages_to_json(last_order)
         }
         self.send_message(content)
 
