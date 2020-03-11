@@ -69,7 +69,6 @@
                     <div class="input_msg_write">
                         <input type="text" class="write_msg" placeholder="Type a message" id="chat-message-input"/>
                         <button class="msg_send_btn" type="button"  id="chat-message-submit"><i class="fa fa-paper-plane-o" aria-hidden="true"></i></button>
-                        <button class="btn btn-info" type="button"  id="atualizar">Atualizar</button>
                     </div>
                 </div>
             </div>
@@ -85,8 +84,6 @@
     var roomName = "{{ room_name|escapejs }}";
     var username = "{{ username|escapejs }}";
     var room = "{{ room|escapejs }}";
-    var url = "{{ url|escapejs}}";
-    var session_id = "{{ session_id|escapejs }}";
 
     var chatSocket = new ReconnectingWebSocket(
         'ws://' + window.location.host +
@@ -95,17 +92,18 @@
     chatSocket.onopen = function(e) {
         fetchRoom();
         fetchMessages(roomName);
-
+        open_wpp()
     };
 
     chatSocket.onmessage = function(e) {
+        fetch_messages_wpp();
 
         var data = JSON.parse(e.data);
         if (data['command'] === 'room') {
             $('#user_chat_name').html('');
             $('#chat').html('');
             for (let i=0; i<data['room'].length; i++)
-                createRoom(data['room'][0][i])
+                createRoom(data['room'][i])
             $(document).ready(function() {
                 $('.room_click').click(function() {
                     $('#chat').html('')
@@ -115,11 +113,9 @@
         }
 
         if (data['command'] === 'messages') {
-            console.log(data)
             for (let i=0; i<data['messages'].length; i++) {
                 createMessage(data['messages'][i]);
             }
-            createMessage(data)
         } else if (data['command'] === 'new_message'){
             createMessage(data['message']);
         }else if (data['command'] === 'wpp'){
@@ -151,17 +147,16 @@
 
         messageInputDom.value = '';
     };
-    $("#atualizar").click(function(){
-
-        fetch_messages_wpp();
-    });
     function fetch_messages_wpp() {
         chatSocket.send(JSON.stringify({'command': 'fetch_messages_wpp',
-            'room': room,'url': url, 'session_id': session_id, }));
+            'room': roomName}));
+    }
+    function open_wpp() {
+        chatSocket.send(JSON.stringify({'command': 'open_wpp'}));
     }
     function fetchMessages(room) {
         chatSocket.send(JSON.stringify({'command': 'fetch_messages',
-            'room': room,'url': url, 'session_id': session_id, }));
+            'room': room}));
     }
 
     function fetchRoom() {
@@ -183,7 +178,6 @@
         } else {
             $('#user_chat_msg').html('<p>'+content+'</p>')
             $('#chat').append("<div class=\"incoming_msg\"><div class=\"received_msg\"><div class=\"received_withd_msg\">"+author+"<p>"+content+"</p></div></div></div><br>")
-
         }
 
 
@@ -191,11 +185,6 @@
     }
     function createRoom(data) {
         var room = data['room__room_name']
-        console.log(data)
         $('#user_chat_name').append("<div class=\"chat_list active_chat\"><div class=\"chat_people\"><div class=\"chat_img\"> <img src=\"https://ptetutorials.com/images/user-profile.png\" alt=\"sunil\"> </div><div class=\"chat_ib\"><button  class='room_click btn' value='"+room+"'>"+room+"</button></div></div></div>").addClass('room_click')
     }
-
-
-
-
 </script>

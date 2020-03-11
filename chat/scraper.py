@@ -8,7 +8,7 @@ import time
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from django.conf import settings
-from .models import Message, Room
+from .models import Message, Room, Chat
 from django.contrib.auth.models import User
 
 
@@ -99,12 +99,13 @@ def search_chatter(driver, settings):
                 return chatter_name
 
 
-def read_last_in_message(driver):
+def read_last_in_message(session_id = None, url=None):
     """
     Reading the last message that you got in from the chatter
     """
     message = ''
     emojis = []
+    driver = create_driver_session(session_id,url)
     for messages in driver.find_elements_by_xpath(
             "//div[contains(@class,'message-out')]"):
         try:
@@ -136,8 +137,22 @@ def read_last_in_message(driver):
                     emojis.append(emoji.get_attribute("data-plain-text"))
             except NoSuchElementException:
                 pass
+    settings = load_settings()
+    user = ''
+    for chatter in driver.find_elements_by_xpath("//div[@class='X7YrQ']"):
+        chatter_name = chatter.find_element_by_xpath(
+            ".//span[contains(@class, '_19RFN')]").text
 
-    return message, emojis
+        if chatter_name == settings['name']:
+            user = chatter_name
+
+    user_a = User.objects.get(username=user)
+    room = Room.objects.get(user=user_a.username, room_name='a')
+    msg = Message(content=message, room=room, author=user_a)
+    msg.save()
+    Chat.objects.get_or_create(user=user_a.username, message=msg, room=room)
+
+    return message, emojis, user
 
 
 def main(url=None, session_id=None):
@@ -148,6 +163,8 @@ def main(url=None, session_id=None):
 
     settings = load_settings()
     driver = load_driver(settings, url, session_id)
+    url = driver.command_executor._url
+    session_id = driver.session_id
     driver.get(settings['page'])
 
     user = search_chatter(driver, settings)
@@ -155,17 +172,19 @@ def main(url=None, session_id=None):
     previous_in_message = None
     if url and session_id:
         while True:
-            last_in_message, emojis = read_last_in_message(driver)
+            last_in_message, emojis, user = read_last_in_message(session_id, url)
+
             if previous_in_message != last_in_message:
-                print(user,last_in_message)
                 previous_in_message = last_in_message
                 user_a = User.objects.get(username=user)
-                msg = Message(content=last_in_message, room=Room.objects.get(pk=1), author=user_a)
+                room = Room.objects.get(user=user_a.username, room_name='a')
+                msg = Message(content=last_in_message, room=room, author=user_a)
                 msg.save()
-                return previous_in_message, user, driver
+                Chat.objects.get_or_create(user=user_a.username,message=msg, room=room)
+                return url, session_id, driver
             time.sleep(1)
     else:
-        return previous_in_message, user, driver
+        return url, session_id, driver
 
 if __name__ == '__main__':
     main()

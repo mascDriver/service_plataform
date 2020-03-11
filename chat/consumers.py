@@ -4,7 +4,7 @@ from channels.generic.websocket import WebsocketConsumer
 import json
 from .models import Message, Room, Chat
 from django.db.models import Count
-from .scraper import main
+from .scraper import main, read_last_in_message
 
 
 class ChatConsumer(WebsocketConsumer):
@@ -12,26 +12,40 @@ class ChatConsumer(WebsocketConsumer):
         chats = list(Chat.objects.filter(user=data['from']).values('room__room_name','user').annotate(dcount=Count('room')))
         result = []
         for chat in chats:
-            result.append(chats)
+            result.append(chat)
         ctx = {
             'command': 'room',
             'room': result,
         }
         self.send(text_data=json.dumps(ctx))
 
-    def fetch_messages_wpp(self,data):
-        msg, user, drive = main(data['url'], data['session_id'])
-        content = {
-            'command': 'wpp',
-            'messages': msg
-        }
-        self.send_message(content)
+    def open_wpp(self,data):
+         self.drive, self.session_id, self.url = main()
 
+    def fetch_messages_wpp(self, data):
+        msg, emoji, user = read_last_in_message(self.session_id, self.url)
+        author_user = User.objects.get(username=user)
+        room = Room.objects.get(room_name=data['room'], user=author_user.username)
+        if Message.objects.filter(author=author_user,
+                                         content=msg, room=room).exists():
+            message = Message.objects.filter(author=author_user,
+                                                    content=msg, room=room)[0]
+        else:
+            message = Message.objects.create(author=author_user,
+                                         content=msg, room=room)
+
+        Chat.objects.get_or_create(room=room, message=message, user=author_user.username)
+        ctx = {
+            'command': 'wpp',
+            'user': message.author.username,
+            'msg': message.content,
+        }
+        self.send_message(ctx)
 
     def fetch_messages(self, data):
-
         messages = Chat.objects.filter(room__room_name=data.get('room','')).all().order_by('-id')[:10]
         last_order = reversed(messages)
+
         content = {
             'command': 'messages',
             'messages': self.messages_to_json(last_order),
@@ -45,7 +59,6 @@ class ChatConsumer(WebsocketConsumer):
         message = Message.objects.create(author=author_user,
                                          content=data['message'],room=room)
         Chat.objects.get_or_create(room=room, message=message, user=data['from'])
-
         content = {
             'command': 'new_message',
             'message': self.message_to_json(message),
@@ -56,19 +69,30 @@ class ChatConsumer(WebsocketConsumer):
         result = []
         for message in messages:
             result.append(self.message_to_json(message))
+
         return result
 
     def message_to_json(self, message):
-        return {
-            'author': message.user,
-            'content': message.message.content,
-            'timestamp': str(message.message.timestamp),
-        }
+        try:
+            ctx = {
+                'author': message.user,
+                'content': message.message.content,
+                'timestamp': str(message.message.timestamp),
+            }
+            return ctx
+        except AttributeError:
+            ctx = {
+                'author': message.author.username,
+                'content': message.content,
+                'timestamp': str(message.timestamp),
+            }
+            return ctx
 
     commands = {
         'fetch_messages': fetch_messages,
         'new_message': new_messages,
         'fetch_room': fetch_room,
+        'open_wpp': open_wpp,
         'fetch_messages_wpp': fetch_messages_wpp
     }
 
