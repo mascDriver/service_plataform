@@ -104,6 +104,7 @@ def read_last_in_message(session_id = None, url=None):
     Reading the last message that you got in from the chatter
     """
     message = ''
+    timestamp = ''
     emojis = []
     driver = create_driver_session(session_id,url)
     for messages in driver.find_elements_by_xpath(
@@ -119,6 +120,12 @@ def read_last_in_message(session_id = None, url=None):
                 ".//span[contains(@class,'selectable-text invisible-space copyable-text')]"
             ).text
 
+            timestamp_container = messages.find_element_by_xpath(
+                ".//div[contains(@class,'_1RNhZ')]"
+            )
+            timestamp = timestamp_container.find_element_by_xpath(
+                ".//span[contains(@class,'_3fnHB')]"
+            ).text
             for emoji in message_container.find_elements_by_xpath(
                     ".//img[contains(@class,'selectable-text invisible-space copyable-text')]"
             ):
@@ -146,13 +153,14 @@ def read_last_in_message(session_id = None, url=None):
         if chatter_name == settings['name']:
             user = chatter_name
 
-    user_a = User.objects.get(username=user)
-    room = Room.objects.get(user=user_a.username, room_name='a')
-    msg = Message(content=message, room=room, author=user_a)
-    msg.save()
-    Chat.objects.get_or_create(user=user_a.username, message=msg, room=room)
+    # user_a = User.objects.get(username=user)
+    # room = Room.objects.get(user=user_a.username, room_name='a')
+    # msg = Message(content=message, room=room, author=user_a)
+    # msg.save()
+    # Chat.objects.get_or_create(user=user_a.username, message=msg, room=room)
+    print(message, timestamp)
 
-    return message, emojis, user
+    return message, emojis, user, timestamp
 
 
 def main(url=None, session_id=None):
@@ -172,15 +180,15 @@ def main(url=None, session_id=None):
     previous_in_message = None
     if url and session_id:
         while True:
-            last_in_message, emojis, user = read_last_in_message(session_id, url)
+            last_in_message, emojis, user, timestamp = read_last_in_message(session_id, url)
 
             if previous_in_message != last_in_message:
                 previous_in_message = last_in_message
-                user_a = User.objects.get(username=user)
-                room = Room.objects.get(user=user_a.username, room_name='a')
-                msg = Message(content=last_in_message, room=room, author=user_a)
-                msg.save()
-                Chat.objects.get_or_create(user=user_a.username,message=msg, room=room)
+                # user_a = User.objects.get(username=user)
+                # room = Room.objects.get(user=user_a.username, room_name='a')
+                # msg = Message(content=last_in_message, room=room, author=user_a)
+                # msg.save()
+                # Chat.objects.get_or_create(user=user_a.username,message=msg, room=room)
                 return url, session_id, driver
             time.sleep(1)
     else:

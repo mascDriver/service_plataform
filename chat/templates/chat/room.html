@@ -81,6 +81,9 @@
 </body>
 </html>
 <script>
+    setInterval(function() {     fetch_messages_wpp();
+    }, 1000);
+
     var roomName = "{{ room_name|escapejs }}";
     var username = "{{ username|escapejs }}";
     var room = "{{ room|escapejs }}";
@@ -92,18 +95,17 @@
     chatSocket.onopen = function(e) {
         fetchRoom();
         fetchMessages(roomName);
-        open_wpp()
+        open_wpp();
     };
 
     chatSocket.onmessage = function(e) {
-        fetch_messages_wpp();
-
         var data = JSON.parse(e.data);
         if (data['command'] === 'room') {
             $('#user_chat_name').html('');
             $('#chat').html('');
-            for (let i=0; i<data['room'].length; i++)
-                createRoom(data['room'][i])
+            for (let i=0; i<data['room'].length; i++){
+                createRoom(data['room'][i]);
+            }
             $(document).ready(function() {
                 $('.room_click').click(function() {
                     $('#chat').html('')
@@ -112,7 +114,7 @@
             });
         }
 
-        if (data['command'] === 'messages') {
+        else if (data['command'] === 'messages') {
             for (let i=0; i<data['messages'].length; i++) {
                 createMessage(data['messages'][i]);
             }
@@ -167,8 +169,6 @@
     function createMessage(data) {
         var author = data['author'] || data['user'];
         var content = data['content'] || data['msg'];
-        var timestamp = new Date(data['timestamp'])
-        var msgListTag = document.createElement('li');
         if (author === username) {
             $('#chat').append("<div class=\"outgoing_msg\"><div class='sent_msg' id=\"sent\">"+author+"<p>"+content+"</p></div></div>")
             $('#user_chat_msg').html('<p>'+content+'</p>')
@@ -179,10 +179,9 @@
             $('#user_chat_msg').html('<p>'+content+'</p>')
             $('#chat').append("<div class=\"incoming_msg\"><div class=\"received_msg\"><div class=\"received_withd_msg\">"+author+"<p>"+content+"</p></div></div></div><br>")
         }
-
-
-
     }
+
+
     function createRoom(data) {
         var room = data['room__room_name']
         $('#user_chat_name').append("<div class=\"chat_list active_chat\"><div class=\"chat_people\"><div class=\"chat_img\"> <img src=\"https://ptetutorials.com/images/user-profile.png\" alt=\"sunil\"> </div><div class=\"chat_ib\"><button  class='room_click btn' value='"+room+"'>"+room+"</button></div></div></div>").addClass('room_click')
