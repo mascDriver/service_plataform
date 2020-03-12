@@ -127,6 +127,8 @@
 
     chatSocket.onclose = function(e) {
         console.log('Chat socket closed unexpectedly');
+        $('#chat').append("<span>Sem conexão</span>")
+
     };
 
     document.querySelector('#chat-message-input').focus();

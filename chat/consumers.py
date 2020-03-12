@@ -4,7 +4,7 @@ from channels.generic.websocket import WebsocketConsumer
 import json
 from .models import Message, Room, Chat
 from django.db.models import Count
-from .scraper import main, read_last_in_message
+from .scraper import main, read_last_in_message, send_msg
 import datetime
 
 class ChatConsumer(WebsocketConsumer):
@@ -24,27 +24,38 @@ class ChatConsumer(WebsocketConsumer):
 
     def fetch_messages_wpp(self, data):
         msg, emoji, user, timestamp = read_last_in_message(self.session_id, self.url)
-        author_user = User.objects.get(username=user)
-        room = Room.objects.get(room_name=data.get('room',''), user=author_user.username)
-        h = datetime.time(int(timestamp.split(':')[0]), int(timestamp.split(':')[1]))
-        time = datetime.datetime.now()
-        time_st = datetime.datetime.combine(time,h)
+        if User.objects.filter(username=user):
+            author_user = User.objects.get(username=user)
+        else:
+            author_user = User(username=user)
+            author_user.set_password(user)
+            author_user.save()
+        if Room.objects.filter(room_name=data.get('room',''), user=author_user.username):
+            room = Room.objects.get(room_name=data.get('room', ''), user=author_user.username)
+        else:
+            room = Room.objects.create(room_name=data.get('room', ''), user=author_user.username)
+        # h = datetime.time(int(timestamp.split(':')[0]), int(timestamp.split(':')[1]))
+        # time = datetime.datetime.now()
+        # time_st = datetime.datetime.combine(time,h)
         # print(time.strftime("%Y-%d-%m %H:%M:%S", time.strptime(timestamp, '%I:%M%p')))
         # print(datetime.strptime(parse_date(timestamp), "%Y-%m-%d").date())
-        print(Message.objects.filter(author=author_user,
-                                      content=msg, room=room).last())
-        if not Message.objects.filter(author=author_user,
-                                      content=msg, room=room).last():
-            message = Message.objects.create(author=author_user,
-                                             content=msg, room=room)
+        if Message.objects.filter(author=author_user, room=room).exists():
+            last_msg = Message.objects.filter(author=author_user, room=room).all().last()
+            if not (last_msg.content == msg and last_msg.author == author_user and last_msg.room == room):
+                message = Message.objects.create(author=author_user,
+                                                 content=msg, room=room)
 
-            Chat.objects.get_or_create(room=room, message=message, user=author_user.username)
-            ctx = {
-                'command': 'wpp',
-                'user': message.author.username,
-                'msg': message.content,
-            }
-            self.send_message(ctx)
+                Chat.objects.create(room=room, message=message, user=author_user.username)
+                ctx = {
+                    'command': 'wpp',
+                    'user': message.author.username,
+                    'msg': message.content,
+                }
+                self.send_message(ctx)
+        else:
+            message = Message.objects.create(author=author_user,
+                                             content='Inicio', room=room)
+            Chat.objects.create(room=room, message=message, user=author_user.username)
 
     def fetch_messages(self, data):
         messages = Chat.objects.filter(room__room_name=data.get('room','')).all().order_by('-id')[:10]
@@ -59,8 +70,14 @@ class ChatConsumer(WebsocketConsumer):
 
     def new_messages(self, data):
         author = data['from']
-        room = Room.objects.get(room_name=data['roomName'], user=data['from'])
-        author_user = User.objects.filter(username=author)[0]
+        if User.objects.filter(username=author):
+            author_user = User.objects.get(username=author)
+        else:
+            author_user = User(username=author)
+            author_user.set_password(author)
+            author_user.save()
+        room = Room.objects.get(room_name=data['roomName'], user=author_user.username)
+
         message = Message.objects.create(author=author_user,
                                          content=data['message'],room=room)
         Chat.objects.get_or_create(room=room, message=message, user=data['from'])
@@ -68,6 +85,7 @@ class ChatConsumer(WebsocketConsumer):
             'command': 'new_message',
             'message': self.message_to_json(message),
         }
+        send_msg(self.session_id, self.url, data['message'])
         return self.send_chat_message(content)
 
     def messages_to_json(self, messages):

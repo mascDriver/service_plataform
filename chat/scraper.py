@@ -108,7 +108,7 @@ def read_last_in_message(session_id = None, url=None):
     emojis = []
     driver = create_driver_session(session_id,url)
     for messages in driver.find_elements_by_xpath(
-            "//div[contains(@class,'message-out')]"):
+            "//div[contains(@class,'message-in')]"):
         try:
             message = ""
             emojis = []
@@ -158,10 +158,25 @@ def read_last_in_message(session_id = None, url=None):
     # msg = Message(content=message, room=room, author=user_a)
     # msg.save()
     # Chat.objects.get_or_create(user=user_a.username, message=msg, room=room)
-    print(message, timestamp)
-
     return message, emojis, user, timestamp
 
+def send_msg(session_id = None, url=None, msg=None):
+    driver = create_driver_session(session_id, url)
+    for messages in driver.find_elements_by_xpath(
+            "//footer[contains(@class,'_1N6pS')]"):
+        try:
+
+
+            message = messages.find_element_by_xpath(
+                ".//div[contains(@class,'_3u328 copyable-text selectable-text')]"
+            )
+            message.send_keys(msg)
+            button = messages.find_element_by_xpath(
+                ".//button[contains(@class,'_3M-N-')]"
+            )
+            button.click()
+        except NoSuchElementException:
+            pass
 
 def main(url=None, session_id=None):
     """

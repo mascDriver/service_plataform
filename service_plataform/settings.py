@@ -138,5 +138,5 @@ LOGIN_REDIRECT_URL = 'index'
 
 BROWSER = 'firefox'
 BROWSER_PATH = '/home/ballke/.mozilla/firefox/3tcyfqe0.default-release'
-NAME = 'Eu'
+NAME = 'Bruno'
 PAGE = 'https://web.whatsapp.com/'
